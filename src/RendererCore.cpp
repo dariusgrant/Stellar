@@ -67,6 +67,16 @@ namespace stlr {
         return instance->createXlibSurfaceKHRUnique( ci );
 
 #endif // VK_USE_PLATFORM_XLIB_KHR
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+        vk::Win32SurfaceCreateInfoKHR ci {
+            {},
+            {},
+            window.get_hwnd()
+        };
+
+        return instance->createWin32SurfaceKHRUnique( ci );
+#endif // VK_USE_PLATFORM_WIN32_KHR
     }
 
     std::vector<RendererCore::Device> RendererCore::create_devices() {

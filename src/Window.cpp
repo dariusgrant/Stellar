@@ -2,8 +2,9 @@
 #include <iostream>
 
 namespace stlr {
-
+#ifdef GLFW_EXPOSE_NATIVE_X11
     Window::X11Info::X11Info( Display* display, X11Window window ) : display( display ), window( window ) {}
+#endif // GLFW_EXPOSE_NATIVE_X11
 
     Window::Window( int width, int height, const char* title ) : window( nullptr ) {
         initialize_glfw();
@@ -18,7 +19,13 @@ namespace stlr {
     const Window::X11Info Window::get_x11_info() const {
         return Window::X11Info( glfwGetX11Display(), glfwGetX11Window( window ) );
     }
-#endif
+#endif // GLFW_EXPOSE_NATIVE_X11
+
+#ifdef GLFW_EXPOSE_NATIVE_WIN32
+    const HWND Window::get_hwnd() const {
+        return glfwGetWin32Window( window );
+    }
+#endif // GLFW_EXPOSE_NATIVE_WIN32
 
     void Window::initialize_glfw() {
         if( glfw_initialized == GLFW_TRUE )
