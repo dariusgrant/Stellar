@@ -29,13 +29,27 @@ namespace stlr {
             X11Info( Display* display, X11Window window );
         };
 #endif // GLFW_EXPOSE_NATIVE_X11
-
     private:
         static inline int glfw_initialized = GLFW_FALSE;
+        int width;
+        int height;
+        const char* title;
         GLFWwindow* window;
 
     public:
         Window( int width = 500, int height = 500, const char* title = "Title" );
+
+        constexpr int get_width() const {
+            return width;
+        }
+
+        constexpr int get_height() const {
+            return  height;
+        }
+
+        constexpr const char* get_title() const {
+            return title;
+        }
 
         void close();
 

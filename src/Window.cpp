@@ -6,7 +6,11 @@ namespace stlr {
     Window::X11Info::X11Info( Display* display, X11Window window ) : display( display ), window( window ) {}
 #endif // GLFW_EXPOSE_NATIVE_X11
 
-    Window::Window( int width, int height, const char* title ) : window( nullptr ) {
+    Window::Window( int width, int height, const char* title ) 
+        : width( width )
+        , height( height )
+        , title( title )
+        , window( nullptr ) {
         initialize_glfw();
         window = glfwCreateWindow( width, height, title, nullptr, nullptr );
     }

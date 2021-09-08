@@ -25,6 +25,7 @@ add_library(StellarRendererLib
     include/Window.hpp src/Window.cpp
     include/RendererCore.hpp src/RendererCore.cpp
     include/ExtensionMap.hpp
+    include/Utils.hpp
 )
 
 target_link_libraries(StellarRendererLib
