@@ -51,6 +51,8 @@ namespace stlr {
             return title;
         }
 
+        const bool is_set_to_close() const;
+
         void close();
 
 #ifdef GLFW_EXPOSE_NATIVE_X11

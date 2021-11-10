@@ -13,6 +13,7 @@ if(CMAKE_TOOLCHAIN_FILE STREQUAL "")
 endif()
 
 include_directories("include")
+include_directories(CMAKE_PREFIX_PATH)
 
 find_package(Vulkan 1.2 REQUIRED)
 
@@ -20,21 +21,37 @@ find_package(glm REQUIRED)
 
 find_package(glfw3 3.3 REQUIRED)
 
-add_library(StellarRendererLib
-    include/Timer.hpp src/Timer.cpp
-    include/Window.hpp src/Window.cpp
-    include/RendererCore.hpp src/RendererCore.cpp
-    include/ExtensionMap.hpp
-    include/Utils.hpp
-)
+#add_library(stellar
+#    include/Timer.hpp src/Timer.cpp
+#    include/Window.hpp src/Window.cpp
+#    include/RendererCore.hpp src/RendererCore.cpp
+#    include/ExtensionMap.hpp
+#    include/DGVulkan.hpp
+#    include/Utils.hpp
+#)
 
-target_link_libraries(StellarRendererLib
+#target_link_libraries(StellarRendererLib
+#    Vulkan::Vulkan
+#    glfw
+#)
+
+add_executable(Triangle src/Triangle.cpp)
+target_include_directories(Triangle PRIVATE glm)
+target_link_libraries(Triangle
     Vulkan::Vulkan
     glfw
 )
 
-add_executable(RotatingCube src/RotatingCube.cpp)
-target_include_directories(RotatingCube PRIVATE glm)
-target_link_libraries(RotatingCube
-    StellarRendererLib
+add_executable(Texture src/Texture.cpp)
+target_include_directories(Texture PRIVATE glm)
+target_link_libraries(Texture
+    Vulkan::Vulkan
+    glfw
 )
+
+#add_executable(RotatingCube src/RotatingCube.cpp)
+#target_link_libraries(RotatingCube
+#    Vulkan::Vulkan
+#    glfw
+#    stellar
+#)

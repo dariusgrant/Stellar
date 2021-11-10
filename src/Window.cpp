@@ -15,6 +15,10 @@ namespace stlr {
         window = glfwCreateWindow( width, height, title, nullptr, nullptr );
     }
 
+    const bool Window::is_set_to_close() const {
+        return glfwWindowShouldClose( window );
+    }
+
     void Window::close() {
         glfwDestroyWindow( window );
     }

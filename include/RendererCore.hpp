@@ -50,7 +50,21 @@ namespace stlr {
 			vk::UniqueSwapchainKHR swapchain;
 			std::vector<vk::Image> images;
 			std::vector<vk::UniqueImageView> image_views;
+            vk::Format format;
+            vk::ColorSpaceKHR color_space;
+            vk::Extent2D extent;
+            uint32_t current_image_index;
 		};
+
+        struct Subpass {
+            std::vector<vk::AttachmentReference> color_references;
+            vk::AttachmentReference depth_reference;
+        };
+
+        struct FramebufferReference {
+            const vk::UniqueRenderPass& render_pass;
+            std::vector<uint32_t> image_view_reference;
+        };
 
 		template <typename T>
 		struct Resource {
@@ -60,8 +74,8 @@ namespace stlr {
 			vk::UniqueDeviceMemory _deviceMemory;
 
 		protected:
-			Resource( T obj, vk::DeviceSize devSize, vk::MemoryRequirements memReqs, vk::UniqueDeviceMemory devMem ) : _object( obj ), _deviceSize( devSize ), _memoryRequirements( memReqs ), _deviceMemory( devMem ) {
-				static_assert(std::is_same_v<T, vk::Buffer> || std::is_same_v<T, vk::Image>, "Resource must be a buffer or an image.");
+            Resource( T& obj, vk::DeviceSize devSize, vk::MemoryRequirements memReqs, vk::UniqueDeviceMemory& devMem ) : _object( std::move( obj ) ), _deviceSize( devSize ), _memoryRequirements( memReqs ), _deviceMemory( std::move( devMem ) ) {
+                static_assert(std::is_same_v<T, vk::UniqueImage> || std::is_same_v<T, vk::UniqueBuffer>, "Resource must be a buffer or an image.");
 			}
 		};
 
@@ -75,7 +89,7 @@ namespace stlr {
 			vk::ImageLayout _imageLayout;
 
 		protected:
-			Image( vk::UniqueImage image, vk::DeviceSize devSize, vk::MemoryRequirements memReqs, vk::UniqueDeviceMemory devMem, uint32_t width, uint32_t height, uint32_t channels, vk::Format format, vk::ImageLayout layout ) : Resource<vk::UniqueImage>( std::move( image ), devSize, memReqs, std::move( devMem ) ), _width( width ), _height( height ), _channels( channels ), _format( format ), _imageLayout( layout ) {}
+            Image( vk::UniqueImage& image, vk::DeviceSize devSize, vk::MemoryRequirements memReqs, vk::UniqueDeviceMemory& devMem, uint32_t width, uint32_t height, uint32_t channels, vk::Format format, vk::ImageLayout layout ) : Resource<vk::UniqueImage>( image, devSize, memReqs, devMem ), _width( width ), _height( height ), _channels( channels ), _format( format ), _imageLayout( layout ) {}
 		};
 
 		struct Buffer : Resource<vk::UniqueBuffer> {
@@ -84,8 +98,10 @@ namespace stlr {
 			vk::BufferUsageFlags usage;
 
 		protected:
-			Buffer( vk::UniqueBuffer buffer, vk::DeviceSize devSize, vk::MemoryRequirements memReqs, vk::UniqueDeviceMemory devMem ) : Resource<vk::UniqueBuffer>( std::move( buffer ), devSize, memReqs, std::move( devMem ) ) {}
+            Buffer( vk::UniqueBuffer& buffer, vk::DeviceSize devSize, vk::MemoryRequirements memReqs, vk::UniqueDeviceMemory& devMem, vk::BufferUsageFlags usage ) : Resource<vk::UniqueBuffer>( buffer, devSize, memReqs, devMem ), usage( usage ) {}
 		};
+
+
 
 #ifndef NDEBUG
 		struct DebugInfo {
@@ -136,8 +152,9 @@ namespace stlr {
 		vk::UniqueCommandBuffer present_command_buffer;
 		vk::UniqueCommandBuffer transfer_command_buffer;
 		RendererCore::Swapchain swapchain;
-		vk::UniqueImage depth_image;
-		uint32_t current_image_index;
+        RendererCore::Image depth_image;
+        vk::UniqueImageView depth_image_view;
+        vk::UniqueSampler sampler;
 
 		Timer timer;
 		double delta_time;
@@ -154,17 +171,28 @@ namespace stlr {
 		virtual void update() = 0;
 		virtual void render() = 0;
 
-		constexpr int get_memory_type_index( vk::MemoryRequirements memReq, vk::MemoryPropertyFlags memProps ) {
+        const uint32_t get_memory_type_index( vk::MemoryRequirements memReq, vk::MemoryPropertyFlags memProps ) {
 			for( uint32_t i = 0; i < selected_device->memory_properties.memoryProperties.memoryTypeCount; ++i ) {
 				if( (memReq.memoryTypeBits & (1 << i)) &&
-					((selected_device->memory_properties.memoryProperties.memoryTypes[i].propertyFlags & memProps) == memProps) )
+                    ( ( selected_device->memory_properties.memoryProperties.memoryTypes[i].propertyFlags & memProps ) == memProps) )
 					return i;
 			}
 
-			return -1;
+            return UINT32_MAX;
 		}
 
-		RendererCore::Image create_image_2d( uint32_t width, uint32_t height, vk::Format format = vk::Format::eR32G32B32A32Sfloat );
+        vk::UniqueDescriptorPool create_descriptor_pool( vk::ArrayProxy<vk::DescriptorPoolSize> pool_sizes, uint32_t sets = 1 );
+        vk::UniqueDescriptorSetLayout create_descriptor_set_layout( vk::ArrayProxy<vk::DescriptorSetLayoutBinding> set_layout_bindings );
+        vk::UniqueDescriptorSet allocate_descriptor_set( vk::UniqueDescriptorPool& pool, vk::UniqueDescriptorSetLayout& set_layout );
+        std::vector<vk::UniqueDescriptorSet> allocate_descriptor_sets( vk::UniqueDescriptorPool& pool, vk::ArrayProxyNoTemporaries<vk::UniqueDescriptorSetLayout> set_layouts );
+        vk::UniqueRenderPass create_render_pass( vk::ArrayProxy<vk::AttachmentDescription> descriptions, vk::ArrayProxy<RendererCore::Subpass> subpasses );
+        vk::UniqueFramebuffer create_framebuffer( vk::UniqueRenderPass& render_pass, vk::ArrayProxy<vk::UniqueImageView*> attachments );
+        vk::UniqueShaderModule create_shader_module( std::string spv_file );
+        RendererCore::Buffer create_buffer( vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties );
+        vk::UniquePipelineLayout create_pipeline_layout( vk::ArrayProxy<vk::UniqueDescriptorSetLayout*> layouts, vk::ArrayProxy<vk::PushConstantRange> push_constants = {} );
+        RendererCore::Image create_image_2d( uint32_t width, uint32_t height, vk::Format format = vk::Format::eR32G32B32A32Sfloat );
+        vk::UniqueImageView create_image_view_2d( RendererCore::Image& image );
+
 
 	private:
 		vk::UniqueInstance create_instance();
@@ -178,6 +206,9 @@ namespace stlr {
 		vk::UniqueCommandBuffer allocate_graphics_command_buffer();
 		vk::UniqueCommandBuffer allocate_transfer_command_buffer();
 		RendererCore::Swapchain create_swapchain();
+        vk::UniqueSampler create_sampler();
+        std::vector<char> get_shader_data(std::string spv_file);
+
 
 		void render_loop();
 	};

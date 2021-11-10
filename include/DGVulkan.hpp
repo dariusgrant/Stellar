@@ -1,10 +1,8 @@
 #pragma once
-#include <QWindow>
 
-#ifdef Q_OS_WINDOWS
+#ifdef _WIN64
     #define VK_USE_PLATFORM_WIN32_KHR
-#elif defined Q_OS_LINUX
-    #include <QX11Info>
+#elif defined __linux__
     #define VK_USE_PLATFORM_XLIB_KHR
     #define GLFW_EXPOSE_NATIVE_X11
 #endif
@@ -14,7 +12,6 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 //#include "Timer.hpp"
-class QWindow;
 
 namespace DG {
 	/// <summary>
@@ -154,7 +151,6 @@ namespace DG {
 
 	class DGVulkan {
 	protected:
-        //QWindow _window;
         GLFWwindow* _glfwWindow;
 		vk::Instance _instance;
 		vk::PhysicalDevice _physicalDevice;
@@ -214,11 +210,11 @@ namespace DG {
 
 			auto extensionNames = std::vector<const char*>{
                 VK_KHR_SURFACE_EXTENSION_NAME,
-                #ifdef VK_USE_PLATFORM_WIN32_KHR
+            #ifdef VK_USE_PLATFORM_WIN32_KHR
                 VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
-                #elif defined VK_USE_PLATFORM_XLIB_KHR
+            #elif defined VK_USE_PLATFORM_XLIB_KHR
                 VK_KHR_XLIB_SURFACE_EXTENSION_NAME
-                #endif
+            #endif
 			};
 
 			auto instanceCI = vk::InstanceCreateInfo(
