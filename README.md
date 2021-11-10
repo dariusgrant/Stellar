@@ -20,6 +20,7 @@
 4.  Create a build environment with CMake (note that STB include path should be specified in CMAKE_PREFIX_PATH)
     '''cmake -DCMAKE_PREFIX_PATH=/path/to/stb/include ./'''
 5.  Either open the generated project with an IDE or launch the build process with '''cmake --build .'''.
+6.  Compile the shaders by running '''glsc -o n-vs.spv n-vs.vert''' where 'n' is the number. Similarly, do the same for the fragment shaders. This will be automated as this project continues to be worked on.
 
 ## Running
 
