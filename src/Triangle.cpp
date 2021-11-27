@@ -1,6 +1,5 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
-#include <QGuiApplication>
 #include "DGVulkan.hpp"
 
 
@@ -9,10 +8,9 @@ float _windowAspectRatio = static_cast<float>(_windowWidth) / _windowHeight;
 glm::vec3 cameraPosition = glm::vec3(0, 0, -5);
 glm::vec3 lookAtPosition = glm::vec3(0, 0, 0);
 glm::vec3 upDirection = glm::vec3(0, -1, 0);
-std::string shaderDirectory = "/home/shinobu/Qt-Projects/StellarEngine/shaders/";
+std::string shaderDirectory = "../shaders/";
 
 int main(int argc, char** argv) {
-    QGuiApplication app(argc, argv);
 
     DG::DGVulkan b{_windowWidth, _windowHeight};
     b.init_surface_and_swapchain();
@@ -87,7 +85,10 @@ int main(int argc, char** argv) {
     b.set_index_count(sizeof(indices) / sizeof(float));
 
     b.render();
+    while (!b.is_window_close()) {
+        glfwPollEvents();
+    }
 
 
-    return app.exec();
+    return 0;
 }

@@ -1,25 +1,20 @@
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-#include <glm.hpp>
-#include <gtx/transform.hpp>
+#include <stb/stb_image.h>
+#include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
 #include <DGVulkan.hpp>
-
 
 float _windowWidth = 1920.0f, _windowHeight = 1080.0f;
 float _windowAspectRatio = static_cast<float>(_windowWidth) / _windowHeight;
 glm::vec3 cameraPosition = glm::vec3(0, 3, -5);
 glm::vec3 lookAtPosition = glm::vec3(0, 0, 0);
 glm::vec3 upDirection = glm::vec3(0, -1, 0);
-std::string shaderDirectory = "../SharedItems/assets/shaders/";
-std::string textureDirectory = "../SharedItems/assets/textures/";
+std::string shaderDirectory = "../shaders/";
+std::string textureDirectory = "../textures/";
 
 int main() {
-	glfwInit();
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	auto window = glfwCreateWindow(_windowWidth, _windowHeight, "Title", nullptr, nullptr);
-
-	auto b = new DG::DGVulkan();
-	b->init_surface_and_swapchain(glfwGetWin32Window(window));
+    auto b = new DG::DGVulkan( _windowWidth, _windowHeight );
+    b->init_surface_and_swapchain();
 	b->init_swapchain_image_views();
 
 	auto depthImage = b->create_image_2D(_windowWidth, _windowHeight, 1, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::Format::eD32Sfloat, vk::MemoryPropertyFlagBits::eDeviceLocal);
@@ -133,7 +128,7 @@ int main() {
 	b->set_index_count(sizeof(indices) / sizeof(indices[0]));
 
 	double lastTime = 0.0f;
-	while (!glfwWindowShouldClose(window)) {
+    while (!b->is_window_close()) {
 		glfwPollEvents();
 		auto currentTime = glfwGetTime();
 		auto deltaTime = currentTime - lastTime;

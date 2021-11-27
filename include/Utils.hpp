@@ -248,11 +248,19 @@ namespace stlr {
             { VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM,                { 6, 3 } }
         };
 
+<<<<<<< HEAD
         static const inline uint32_t get_format_size( vk::Format format ) {
             return format_table.at( static_cast<VkFormat>( format ) ).size;
         }
 
 		static const inline uint32_t get_format_component_count( vk::Format format ) {
+=======
+        static const uint32_t get_format_size( vk::Format format ) {
+            return format_table.at( static_cast<VkFormat>( format ) ).size;
+        }
+
+        static const uint32_t get_format_component_count( vk::Format format ) {
+>>>>>>> 40ac455a26e24b123555ab53b6a781bda433c843
             return format_table.at( static_cast<VkFormat>( format ) ).component_count;
 			
 		}

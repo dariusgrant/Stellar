@@ -1,4 +1,5 @@
 #include "RendererCore.hpp"
+#include <fstream>
 
 namespace stlr {
 	RendererCore::RendererCore( Window& window )
@@ -12,12 +13,163 @@ namespace stlr {
 		, present_command_buffer( allocate_graphics_command_buffer() )
 		, transfer_command_buffer( allocate_transfer_command_buffer() )
 		, swapchain( create_swapchain() )
-		, depth_image( nullptr )
-		, current_image_index( 0 )
+        , depth_image( create_image_2d( window.get_width(), window.get_height(), vk::Format::eD32Sfloat ) )
+        , depth_image_view( create_image_view_2d( depth_image ) )
+        , sampler( create_sampler() )
 		, timer()
 		, delta_time( 0.0f )
-		, pre_update( nullptr )
-		, post_update( nullptr ) {}
+        , pre_update( nullptr )
+        , post_update( nullptr ) {}
+
+    vk::UniqueDescriptorPool RendererCore::create_descriptor_pool( vk::ArrayProxy<vk::DescriptorPoolSize> pool_sizes, uint32_t sets ) {
+        vk::DescriptorPoolCreateInfo ci {
+            vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+            sets,
+            pool_sizes.size(),
+            pool_sizes.data()
+        };
+
+        return selected_device->device->createDescriptorPoolUnique( ci );
+    }
+
+    vk::UniqueDescriptorSetLayout RendererCore::create_descriptor_set_layout( vk::ArrayProxy<vk::DescriptorSetLayoutBinding> set_layout_bindings ) {
+        vk::DescriptorSetLayoutCreateInfo ci {
+            {},
+            set_layout_bindings.size(),
+            set_layout_bindings.data()
+        };
+
+        return selected_device->device->createDescriptorSetLayoutUnique( ci );
+    }
+
+    vk::UniqueDescriptorSet RendererCore::allocate_descriptor_set( vk::UniqueDescriptorPool& pool, vk::UniqueDescriptorSetLayout& set_layout ) {
+        vk::DescriptorSetAllocateInfo ai {
+            pool.get(),
+            1,
+            &set_layout.get()
+        };
+
+        return std::move( selected_device->device->allocateDescriptorSetsUnique( ai ).front() );
+    }
+
+    std::vector<vk::UniqueDescriptorSet> RendererCore::allocate_descriptor_sets(vk::UniqueDescriptorPool& pool, vk::ArrayProxyNoTemporaries<vk::UniqueDescriptorSetLayout> set_layouts ) {
+        std::vector<vk::DescriptorSetLayout> s;
+        s.reserve( set_layouts.size() );
+        for(const auto& e : set_layouts ) {
+            s.push_back( e.get() );
+        }
+        vk::DescriptorSetAllocateInfo ai {
+            pool.get(),
+            static_cast<uint32_t>( s.size() ),
+            s.data()
+        };
+
+        return selected_device->device->allocateDescriptorSetsUnique( ai );
+    }
+
+    vk::UniqueRenderPass RendererCore::create_render_pass(vk::ArrayProxy<vk::AttachmentDescription> descriptions, vk::ArrayProxy<Subpass> subpasses) {
+        std::vector<vk::SubpassDescription> subpass_descriptions;
+        subpass_descriptions.reserve( subpasses.size() );
+        for( const auto& s : subpasses ) {
+            vk::SubpassDescription sd {
+                {},
+                vk::PipelineBindPoint::eGraphics,
+                0,
+                nullptr,
+                static_cast<uint32_t>( s.color_references.size() ),
+                s.color_references.data(),
+                nullptr,
+                &s.depth_reference,
+                0,
+                nullptr
+            };
+
+            subpass_descriptions.push_back( sd );
+        }
+
+        vk::RenderPassCreateInfo ci {
+            {},
+            descriptions.size(),
+            descriptions.data(),
+            static_cast<uint32_t>( subpass_descriptions.size() ),
+            subpass_descriptions.data(),
+            0,
+            nullptr
+        };
+
+        return selected_device->device->createRenderPassUnique( ci );
+    }
+
+    vk::UniqueFramebuffer RendererCore::create_framebuffer(vk::UniqueRenderPass &render_pass, vk::ArrayProxy<vk::UniqueImageView*> attachments) {
+        std::vector<vk::ImageView> views;
+        views.reserve( attachments.size() );
+
+        for( const auto& a : attachments ) {
+            views.push_back( a->get() );
+        }
+
+        vk::FramebufferCreateInfo ci {
+            {},
+            render_pass.get(),
+            static_cast<uint32_t>( views.size() ),
+            views.data(),
+            swapchain.extent.width,
+            swapchain.extent.height,
+            1
+        };
+
+        return selected_device->device->createFramebufferUnique( ci );
+    }
+
+    vk::UniqueShaderModule RendererCore::create_shader_module( std::string spv_file ) {
+        auto s = get_shader_data( spv_file );
+        vk::ShaderModuleCreateInfo ci {
+            {},
+            s.size(),
+            reinterpret_cast<uint32_t*>( s.data() )
+        };
+
+        return selected_device->device->createShaderModuleUnique( ci );
+    }
+
+    RendererCore::Buffer RendererCore::create_buffer( vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties ) {
+        vk::BufferCreateInfo ci {
+            {},
+            size,
+            usage,
+            vk::SharingMode::eExclusive,
+            0,
+            nullptr
+        };
+        auto buffer = selected_device->device->createBufferUnique( ci );
+        auto bufferMR = selected_device->device->getBufferMemoryRequirements( buffer.get() );
+        auto bufferMemoryAI = vk::MemoryAllocateInfo(bufferMR.size, get_memory_type_index( bufferMR, memory_properties ) );
+        auto bufferDM = selected_device->device->allocateMemoryUnique(bufferMemoryAI);
+
+        selected_device->device->bindBufferMemory( buffer.get(), bufferDM.get(), 0 );
+
+        return Buffer( buffer, size, bufferMR, bufferDM, usage );
+
+    }
+
+    vk::UniquePipelineLayout RendererCore::create_pipeline_layout( vk::ArrayProxy<vk::UniqueDescriptorSetLayout *> layouts, vk::ArrayProxy<vk::PushConstantRange> push_constants ) {
+        std::vector<vk::DescriptorSetLayout> s;
+        s.reserve( layouts.size() );
+
+        for( const auto& l : layouts ) {
+            s.push_back( l->get() );
+        }
+
+        vk::PipelineLayoutCreateInfo ci {
+            {},
+            static_cast<uint32_t>( s.size() ),
+            s.data(),
+            push_constants.size(),
+            push_constants.data()
+        };
+
+        return selected_device->device->createPipelineLayoutUnique( ci );
+    }
 
 	RendererCore::Image RendererCore::create_image_2d( uint32_t width, uint32_t height, vk::Format format ) {
 		vk::ImageCreateInfo ci {
@@ -30,8 +182,7 @@ namespace stlr {
 			vk::SampleCountFlagBits::e1,
 			vk::ImageTiling::eOptimal,
 			{
-				vk::ImageUsageFlagBits::eColorAttachment |
-				vk::ImageUsageFlagBits::eDepthStencilAttachment |
+                format == vk::Format::eD32Sfloat ? vk::ImageUsageFlagBits::eDepthStencilAttachment : vk::ImageUsageFlagBits::eColorAttachment |
 				vk::ImageUsageFlagBits::eTransferDst
 			},
 			vk::SharingMode::eExclusive,
@@ -47,8 +198,27 @@ namespace stlr {
 		
 		selected_device->device->bindImageMemory( image.get(), dev_mem.get(), 0 );
 		vk::DeviceSize size { static_cast<vk::DeviceSize>( width ) * height * format_utils::get_format_component_count( format ) };
-		return RendererCore::Image( std::move( image ), size, mem_reqs, std::move( dev_mem ), width, height, format_utils::get_format_component_count(format), format, vk::ImageLayout::ePreinitialized );
-	}
+        return RendererCore::Image( image, size, mem_reqs, dev_mem, width, height, format_utils::get_format_component_count(format), format, vk::ImageLayout::ePreinitialized );
+    }
+
+    vk::UniqueImageView RendererCore::create_image_view_2d(Image &image) {
+        vk::ImageViewCreateInfo ci {
+            {},
+            image._object.get(),
+            vk::ImageViewType::e2D,
+            image._format,
+            {},
+            vk::ImageSubresourceRange {
+                image._format == vk::Format::eD32Sfloat ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor,
+                0,
+                1,
+                0,
+                1
+            }
+        };
+
+        return selected_device->device->createImageViewUnique( ci );
+    }
 
 	vk::UniqueInstance RendererCore::create_instance() {
 		std::vector<const char*> layers{
@@ -347,7 +517,7 @@ namespace stlr {
 			surface_format.colorSpace,
 			surface_capabilities.currentExtent,
 			1,
-			surface_capabilities.supportedUsageFlags,
+            vk::ImageUsageFlagBits::eColorAttachment,
 			vk::SharingMode::eExclusive,
 			0,
 			nullptr,
@@ -384,6 +554,43 @@ namespace stlr {
 		}
 
 
-		return Swapchain{ std::move( swapchain ), swapchain_images, std::move( swapchain_image_views ) };
-	}
+        return Swapchain{ std::move( swapchain ), swapchain_images, std::move( swapchain_image_views ), ci.imageFormat, ci.imageColorSpace, ci.imageExtent, 0 };
+    }
+
+    vk::UniqueSampler RendererCore::create_sampler() {
+        vk::SamplerCreateInfo ci {
+            {},
+            vk::Filter::eLinear,
+            vk::Filter::eLinear,
+            vk::SamplerMipmapMode::eLinear,
+            vk::SamplerAddressMode::eRepeat,
+            vk::SamplerAddressMode::eRepeat,
+            vk::SamplerAddressMode::eRepeat,
+            0.0f,
+            false,
+            0.0f,
+            false,
+            vk::CompareOp::eNever,
+            0.0f,
+            0.0f,
+            vk::BorderColor::eIntOpaqueBlack,
+            false
+        };
+
+        return selected_device->device->createSamplerUnique( ci );
+    }
+
+    std::vector<char> RendererCore::get_shader_data(std::string spv_file) {
+        auto f = std::ifstream(spv_file, std::ios::ate | std::ios::binary);
+        if(!f.is_open()) {
+            printf("Could not open file");
+            return {};
+        }
+        auto size = static_cast<size_t>(f.tellg());
+        auto data = std::vector<char>(size);
+        f.seekg(0);
+        f.read(data.data(), size);
+        f.close();
+        return data;
+    }
 }
