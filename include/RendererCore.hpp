@@ -60,8 +60,8 @@ namespace stlr {
 			vk::UniqueDeviceMemory _deviceMemory;
 
 		protected:
-			Resource( T obj, vk::DeviceSize devSize, vk::MemoryRequirements memReqs, vk::UniqueDeviceMemory devMem ) : _object( obj ), _deviceSize( devSize ), _memoryRequirements( memReqs ), _deviceMemory( devMem ) {
-				static_assert(std::is_same_v<T, vk::Buffer> || std::is_same_v<T, vk::Image>, "Resource must be a buffer or an image.");
+			Resource( T&& obj, vk::DeviceSize devSize, vk::MemoryRequirements memReqs, vk::UniqueDeviceMemory devMem ) : _object( obj ), _deviceSize( devSize ), _memoryRequirements( memReqs ), _deviceMemory( std::move( devMem ) ) {
+				static_assert(std::is_same_v<T, vk::UniqueBuffer> || std::is_same_v<T, vk::UniqueImage>, "Resource must be a buffer or an image.");
 			}
 		};
 
@@ -154,14 +154,14 @@ namespace stlr {
 		virtual void update() = 0;
 		virtual void render() = 0;
 
-		constexpr int get_memory_type_index( vk::MemoryRequirements memReq, vk::MemoryPropertyFlags memProps ) {
+		const uint32_t get_memory_type_index( vk::MemoryRequirements memReq, vk::MemoryPropertyFlags memProps ) {
 			for( uint32_t i = 0; i < selected_device->memory_properties.memoryProperties.memoryTypeCount; ++i ) {
 				if( (memReq.memoryTypeBits & (1 << i)) &&
 					((selected_device->memory_properties.memoryProperties.memoryTypes[i].propertyFlags & memProps) == memProps) )
 					return i;
 			}
 
-			return -1;
+			return UINT32_MAX;
 		}
 
 		RendererCore::Image create_image_2d( uint32_t width, uint32_t height, vk::Format format = vk::Format::eR32G32B32A32Sfloat );
